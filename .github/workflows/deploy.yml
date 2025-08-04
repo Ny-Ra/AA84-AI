@@ -33,7 +33,7 @@ jobs:
     
     - name: Package Lambda function
       run: |
-        zip -r lambda-function.zip main.py
+        zip -r lambda-function.zip lambda_function.py
     
     - name: Deploy Lambda function
       run: |
