@@ -31,6 +31,10 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
     
+    - name: Set OpenAI API Key
+      run: |
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> lambda_function.py
+    
     - name: Package Lambda function
       run: |
         zip -r lambda-function.zip lambda_function.py

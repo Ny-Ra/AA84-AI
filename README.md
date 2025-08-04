@@ -11,6 +11,7 @@ Deployment is automated via GitHub Actions when pushing to the `main` branch.
   - `AWS_SECRET_ACCESS_KEY`
   - `AWS_REGION`
   - `LAMBDA_FUNCTION_NAME`
+  - `OPENAI_API_KEY`
 
 ### Local Development
 
@@ -41,7 +42,7 @@ source .venv/bin/activate  # Linux/Mac
 
 ## ⚡ Lambda Function
 
-The Lambda function is located in `main.py` and exposes the `lambda_handler` function.
+The Lambda function is located in `lambda_function.py` and exposes the `lambda_handler` function.
 
 ## 🔧 Configuration
 
