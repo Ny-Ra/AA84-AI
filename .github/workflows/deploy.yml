@@ -1,0 +1,42 @@
+name: Deploy AWS Lambda
+
+on:
+  push:
+    branches: 
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+    
+    - name: Setup Python with uv
+      run: uv python install 3.13
+    
+    - name: Install dependencies
+      run: |
+        uv add boto3
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+    
+    - name: Package Lambda function
+      run: |
+        zip -r lambda-function.zip main.py
+    
+    - name: Deploy Lambda function
+      run: |
+        aws lambda update-function-code \
+          --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+          --zip-file fileb://lambda-function.zip
