@@ -22,7 +22,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        uv add boto3
+        uv sync
     
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v4
