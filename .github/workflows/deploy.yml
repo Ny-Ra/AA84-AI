@@ -31,9 +31,11 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ${{ secrets.AWS_REGION }}
     
-    - name: Set OpenAI API Key
+    - name: Update Lambda environment variables
       run: |
-        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> lambda_function.py
+        aws lambda update-function-configuration \
+          --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+          --environment Variables="{OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}}"
     
     - name: Package Lambda function
       run: |
