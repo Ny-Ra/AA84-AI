@@ -8,7 +8,7 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 app = FastAPI()
-handler = Mangum(app)
+handler = Mangum(app, lifespan="off")
 
 
 @app.get("/")
