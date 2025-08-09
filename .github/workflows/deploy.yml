@@ -36,7 +36,14 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
     
-    - name: Update Lambda function
+    - name: Update Lambda function configuration for container images
+      run: |
+        aws lambda update-function-configuration \
+          --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
+          --package-type Image \
+          --image-config Command=["app.main.handler"]
+    
+    - name: Update Lambda function code
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         ECR_REPOSITORY: aa84/ai
