@@ -1,12 +1,13 @@
 [project]
 name = "aa84-ai"
 version = "0.1.0"
-description = "AWS Lambda function"
 requires-python = ">=3.13"
 dependencies = [
-    "boto3",
-    "openai",
+    "fastapi",
+    "mangum",
 ]
 
-[tool.uv]
-dev-dependencies = []
+[dependency-groups]
+dev = [
+    "fastapi[standard]>=0.115",
+]
