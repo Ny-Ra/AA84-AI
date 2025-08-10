@@ -1,9 +1,25 @@
-FROM public.ecr.aws/lambda/python:3.13
+FROM python:3.13-slim
 
-COPY requirements.txt ${LAMBDA_TASK_ROOT}
-RUN pip install -r requirements.txt
+WORKDIR /app
 
-COPY app/ ${LAMBDA_TASK_ROOT}/app/
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Default to Lambda handler, can be overridden for local dev
-CMD ["app.main.handler"]
+# Copy requirements first for better caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY app/ ./app/
+
+# Expose port
+EXPOSE 8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Run the application
+CMD ["python", "app/main.py"]

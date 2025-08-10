@@ -1,4 +1,4 @@
-name: Deploy AWS Lambda
+name: Deploy to Azure Container Registry
 
 on:
   push:
@@ -7,41 +7,48 @@ on:
   workflow_dispatch:
 
 jobs:
-  deploy:
+  build-and-push:
     runs-on: ubuntu-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
     
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
+    - name: Azure Login with Service Principal
+      uses: azure/login@v1
       with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
     
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+    - name: Login to Azure Container Registry
+      uses: azure/docker-login@v1
+      with:
+        login-server: ${{ secrets.ACR_LOGIN_SERVER }}
+        username: ${{ secrets.ACR_USERNAME }}
+        password: ${{ secrets.ACR_PASSWORD }}
     
-    - name: Build, tag, and push image to Amazon ECR
+    - name: Build and push Docker image
       env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: aa84/ai
+        ACR_LOGIN_SERVER: ${{ secrets.ACR_LOGIN_SERVER }}
+        IMAGE_NAME: aa84-ai
         IMAGE_TAG: ${{ github.sha }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG .
+        docker build -t $ACR_LOGIN_SERVER/$IMAGE_NAME:latest .
+        docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:$IMAGE_TAG
+        docker push $ACR_LOGIN_SERVER/$IMAGE_NAME:latest
     
-    - name: Update Lambda function code
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        ECR_REPOSITORY: aa84/ai
-        IMAGE_TAG: ${{ github.sha }}
+    - name: Deploy to Azure Container Instances
+      if: ${{ secrets.DEPLOY_TO_ACI == 'true' }}
       run: |
-        aws lambda update-function-code \
-          --function-name ${{ secrets.LAMBDA_FUNCTION_NAME }} \
-          --image-uri $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        az container create \
+          --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+          --name aa84-ai-container \
+          --image ${{ secrets.ACR_LOGIN_SERVER }}/aa84-ai:${{ github.sha }} \
+          --cpu 1 \
+          --memory 1 \
+          --registry-login-server ${{ secrets.ACR_LOGIN_SERVER }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --dns-name-label aa84-ai-${{ github.run_number }} \
+          --ports 8000 \
+          --environment-variables OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}"
