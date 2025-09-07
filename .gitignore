@@ -4,3 +4,7 @@ uv.lock
 __pycache__/
 __init__.py
 CLAUDE.md
+
+.env
+.env.*
+.vscode/
