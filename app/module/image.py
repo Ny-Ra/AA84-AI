@@ -6,6 +6,7 @@ from fastapi import UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import anthropic
 from PIL import Image
+from .image_utils import compress_image, get_image_info, should_compress
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def get_anthropic_client():
 
 async def describe_image(file: UploadFile):
     if not file.content_type or not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="Le fichier doit être une image")
+        raise HTTPException(status_code=400, detail="File must be an image")
     
     try:
         contents = await file.read()
@@ -26,9 +27,23 @@ async def describe_image(file: UploadFile):
             image = Image.open(io.BytesIO(contents))
             image.verify()
         except Exception:
-            raise HTTPException(status_code=400, detail="Format d'image invalide")
+            raise HTTPException(status_code=400, detail="Invalid image format")
         
-        base64_image = base64.b64encode(contents).decode('utf-8')
+        # Get original image information
+        original_info = get_image_info(contents)
+        logger.info(f"Image originale: {original_info}")
+        
+        # Compress if necessary
+        processed_contents = contents
+        processed_content_type = file.content_type
+        
+        if should_compress(contents):
+            logger.info("Compressing image...")
+            processed_contents, processed_content_type = compress_image(contents)
+            compressed_info = get_image_info(processed_contents)
+            logger.info(f"Image compressée: {compressed_info}")
+        
+        base64_image = base64.b64encode(processed_contents).decode('utf-8')
         
         client = get_anthropic_client()
         message = client.messages.create(
@@ -42,13 +57,13 @@ async def describe_image(file: UploadFile):
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": file.content_type,
+                                "media_type": processed_content_type,
                                 "data": base64_image,
                             },
                         },
                         {
                             "type": "text",
-                            "text": "Décris en détail ce que tu vois dans cette image en français."
+                            "text": "Describe in detail what you see in this image."
                         }
                     ],
                 }
@@ -57,15 +72,24 @@ async def describe_image(file: UploadFile):
         
         description = message.content[0].text
         
-        return JSONResponse(content={
+        response_data = {
             "description": description,
             "filename": file.filename,
-            "content_type": file.content_type
-        })
+            "content_type": file.content_type,
+            "original_size_mb": original_info["size_mb"]
+        }
+        
+        if should_compress(contents):
+            response_data["compressed_size_mb"] = compressed_info["size_mb"]
+            response_data["compression_ratio"] = round(
+                (1 - compressed_info["size_bytes"] / original_info["size_bytes"]) * 100, 1
+            )
+        
+        return JSONResponse(content=response_data)
         
     except anthropic.APIError as e:
-        logger.error(f"Erreur API Anthropic: {e}")
-        raise HTTPException(status_code=500, detail="Erreur lors de l'analyse de l'image")
+        logger.error(f"Anthropic API error: {e}")
+        raise HTTPException(status_code=500, detail="Error analyzing image")
     except Exception as e:
-        logger.error(f"Erreur inattendue: {e}")
-        raise HTTPException(status_code=500, detail="Erreur interne du serveur")
+        logger.error(f"Unexpected error: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")

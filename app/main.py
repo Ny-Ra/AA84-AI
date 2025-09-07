@@ -1,9 +1,6 @@
-import os
 import logging
 from dotenv import load_dotenv
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 from routes import image_router
 
 load_dotenv()
